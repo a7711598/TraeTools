@@ -1,0 +1,2129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060c">
+<title>太阳系 · 科普动画</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='15' fill='%23ffc46b'/%3E%3Ccircle cx='32' cy='32' r='25' fill='none' stroke='%23ffc46b' stroke-opacity='.35'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --accent:#ffc46b;
+    --ink:#f2eee5;
+    --muted:#94a0b2;
+    --line:rgba(226,234,246,.13);
+    --serif:"Songti SC","STSong","Noto Serif SC","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif;
+    --sans:"PingFang SC","Hiragino Sans GB","Noto Sans SC","Source Han Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    overflow:hidden;
+    overscroll-behavior:none;
+    color:var(--ink);
+    font-family:var(--sans);
+    background:
+      radial-gradient(1100px 760px at 74% 28%, rgba(42,68,116,.20), transparent 64%),
+      radial-gradient(860px 640px at 16% 82%, rgba(78,38,92,.13), transparent 62%),
+      radial-gradient(1600px 1100px at 50% 45%, #0a0f1a 0%, #05070d 56%, #030509 100%);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  button{font:inherit;color:inherit}
+  button:focus-visible{outline:1px solid var(--accent);outline-offset:4px}
+  canvas{display:block}
+
+  /* ===== 背景层 ===== */
+  #space{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+  #scrim{position:fixed;inset:0;z-index:2;pointer-events:none;transition:opacity .7s ease}
+  body[data-mode="intro"] #scrim{
+    background:radial-gradient(ellipse at 50% 54%, transparent 26%, rgba(2,3,7,.4) 100%);
+  }
+  body[data-mode="split"] #scrim{
+    background:
+      linear-gradient(90deg, rgba(3,5,10,.95) 0%, rgba(3,5,10,.88) 24%, rgba(3,5,10,.58) 50%, rgba(3,5,10,.14) 73%, rgba(3,5,10,.46) 100%),
+      radial-gradient(ellipse at 70% 50%, transparent 32%, rgba(2,4,8,.45) 100%);
+  }
+  body[data-mode="wide"] #scrim{
+    background:
+      linear-gradient(90deg, rgba(3,5,10,.95) 0%, rgba(3,5,10,.8) 32%, rgba(3,5,10,.42) 58%, rgba(3,5,10,.16) 100%),
+      radial-gradient(ellipse at 50% 50%, transparent 36%, rgba(2,4,8,.42) 100%);
+  }
+  body[data-mode="closing"] #scrim{
+    background:
+      radial-gradient(ellipse at 50% 45%, rgba(3,5,10,.72) 0%, rgba(3,5,10,.58) 33%, rgba(2,3,7,.86) 70%, rgba(1,2,5,.96) 100%);
+  }
+  .grain{
+    position:fixed;inset:0;z-index:5;pointer-events:none;opacity:.055;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+    background-size:160px 160px;
+  }
+  .vignette{
+    position:fixed;inset:0;z-index:4;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%, transparent 46%, rgba(0,0,0,.5) 100%);
+  }
+
+  /* ===== 顶部标识 ===== */
+  #chrome{
+    position:fixed;top:0;left:0;right:0;z-index:7;display:flex;align-items:center;justify-content:space-between;
+    padding:24px clamp(20px,4.4vw,62px) 0;pointer-events:none;
+  }
+  .brand{display:flex;align-items:center;gap:11px;font-size:10px;letter-spacing:.34em;color:rgba(238,243,250,.9)}
+  .brand .dot{width:5px;height:5px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);transition:background .6s,box-shadow .6s}
+  .brand-sub{color:rgba(190,200,214,.56);letter-spacing:.28em}
+  .scale-note{font-size:10px;letter-spacing:.24em;color:rgba(184,195,210,.58)}
+
+  /* ===== 舞台 ===== */
+  #stage{position:fixed;inset:0;z-index:3;pointer-events:none}
+  #intro,#panel,#hero-wrap,#narrative{will-change:opacity}
+  #stage.fading #intro,#stage.fading #panel,#stage.fading #hero-wrap,#stage.fading #narrative{opacity:0!important}
+
+  /* 标题卡 */
+  #intro{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    opacity:0;transition:opacity .9s ease;padding-bottom:4vh;text-align:center;
+  }
+  #intro.show{opacity:1}
+  .intro-inner{transform:translateY(-2vh)}
+  #intro .eyebrow{
+    display:inline-flex;align-items:center;gap:14px;font-size:10.5px;letter-spacing:.52em;
+    color:var(--accent);text-transform:uppercase;font-weight:600;
+  }
+  #intro .eyebrow::before,#intro .eyebrow::after{content:"";width:34px;height:1px;background:currentColor;opacity:.45}
+  #intro h1{
+    margin:26px 0 20px;font-family:var(--serif);font-weight:500;
+    font-size:clamp(76px,13.5vw,196px);line-height:.98;letter-spacing:.14em;
+    text-indent:.14em;color:#f6f2e8;
+    text-shadow:0 0 60px rgba(255,196,107,.14);
+  }
+  #intro .sub{
+    margin:0;font-size:clamp(12px,1.15vw,15px);letter-spacing:.46em;text-indent:.46em;color:#c0c9d6;
+  }
+  #intro .intro-meta{
+    margin-top:44px;font-size:10px;letter-spacing:.32em;color:rgba(186,198,214,.68);
+  }
+  #intro.show .reveal{animation:rise 1.1s cubic-bezier(.2,.7,.2,1) both}
+  #intro.show .eyebrow{animation-delay:.12s}
+  #intro.show h1{animation-delay:.26s}
+  #intro.show .sub{animation-delay:.42s}
+  #intro.show .intro-meta{animation-delay:.6s}
+  @keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+
+  /* 章节文字 */
+  #panel{
+    position:absolute;left:clamp(26px,7vw,120px);top:50%;transform:translateY(-50%);
+    width:min(432px,36vw);opacity:0;pointer-events:none;
+    transition:opacity .75s ease;
+  }
+  #panel.show{opacity:1}
+  .panel-head{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+  .panel-head .num{font-size:11px;letter-spacing:.22em;color:var(--accent);font-variant-numeric:tabular-nums;transition:color .6s}
+  .panel-head .tag{font-size:9.5px;letter-spacing:.2em;color:#a8b3c3;text-transform:uppercase;line-height:1.5}
+  .panel-head .tag::before{
+    content:"";display:inline-block;width:24px;height:1px;background:var(--accent);
+    vertical-align:middle;margin-right:10px;opacity:.7;
+  }
+  #p-name{
+    margin:0;font-family:var(--serif);font-weight:500;font-size:clamp(46px,5.4vw,78px);
+    line-height:1;letter-spacing:.045em;color:#f5f1e7;
+  }
+  #p-en{margin-top:12px;font-size:10px;letter-spacing:.42em;color:rgba(178,190,206,.62);text-transform:uppercase}
+  #p-desc{
+    margin:24px 0 0;max-width:37ch;font-size:14px;line-height:2;letter-spacing:.03em;color:#c4ccd8;
+  }
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:15px 26px;margin-top:28px}
+  .stats.empty{display:none}
+  .stat{padding-top:9px;border-top:1px solid var(--line)}
+  .stat .k{display:block;font-size:9px;letter-spacing:.18em;color:#909caf;margin-bottom:5px}
+  .stat .v{font-size:13.5px;letter-spacing:.015em;color:#e6ebf2;font-variant-numeric:tabular-nums}
+  .closing-note{margin-top:28px;font-size:10.5px;letter-spacing:.15em;color:rgba(198,208,224,.78);display:none;text-shadow:0 1px 10px rgba(0,0,0,.85)}
+  .replay{
+    display:none;margin-top:30px;padding:13px 30px;border:1px solid rgba(255,255,255,.24);
+    background:rgba(255,255,255,.02);color:#ece7da;font-size:10.5px;letter-spacing:.3em;
+    cursor:pointer;border-radius:2px;pointer-events:auto;transition:border-color .3s,color .3s,background .3s;
+  }
+  .replay:hover{border-color:var(--accent);color:var(--accent);background:rgba(255,196,107,.05)}
+
+  /* 收尾布局 */
+  body[data-mode="closing"] #panel{
+    left:50%;top:47%;transform:translate(-50%,-50%);width:min(760px,86vw);text-align:center;
+  }
+  body[data-mode="closing"] .panel-head{justify-content:center}
+  body[data-mode="closing"] .panel-head .tag::before{display:none}
+  body[data-mode="closing"] .stats{display:none}
+  body[data-mode="closing"] #p-desc{margin-left:auto;margin-right:auto;max-width:52ch}
+  body[data-mode="closing"] .replay{display:inline-block}
+  body[data-mode="closing"] .closing-note{display:block}
+  body[data-mode="closing"] #p-name{font-size:clamp(38px,4.8vw,66px)}
+
+  /* 行星特写 */
+  #hero-wrap{
+    position:absolute;right:clamp(22px,6vw,110px);top:50%;width:min(43vw,60vh);max-width:700px;
+    aspect-ratio:1/1;transform:translateY(-50%);opacity:0;pointer-events:none;
+    transition:opacity .9s ease;
+  }
+  #hero-wrap.show{opacity:1}
+  #hero{width:100%;height:100%;position:relative;z-index:1}
+  #hero-wrap.is-sun::before{
+    content:"";position:absolute;left:50%;top:50%;width:138%;height:138%;
+    transform:translate(-50%,-50%);border-radius:50%;z-index:0;pointer-events:none;
+    background:radial-gradient(circle, rgba(255,196,107,.16) 0%, rgba(255,146,40,.055) 44%, rgba(255,110,20,0) 70%);
+    filter:blur(6px);
+  }
+
+  /* 旁白 */
+  #narrative{
+    position:absolute;left:50%;bottom:clamp(114px,14.5vh,154px);transform:translateX(-50%);
+    width:min(620px,64vw);text-align:center;opacity:0;pointer-events:none;
+    transition:opacity .8s ease .15s;
+  }
+  #narrative.show{opacity:1}
+  #narrative .rule{width:1px;height:20px;background:var(--accent);opacity:.75;margin:0 auto 13px}
+  #narrative p{
+    margin:0;font-size:13px;line-height:1.95;letter-spacing:.09em;color:#d0d8e4;
+    text-shadow:0 2px 18px rgba(0,0,0,.8);
+  }
+
+  /* ===== 播放控制 ===== */
+  #hud{
+    position:fixed;left:0;right:0;bottom:0;z-index:8;
+    padding:0 clamp(16px,4.5vw,64px) 20px;
+  }
+  .track{display:flex;align-items:flex-end;gap:3px;height:15px;margin-bottom:13px;position:relative}
+  .seg{
+    position:relative;flex:1 1 0;height:15px;padding:0;border:0;background:none;cursor:pointer;
+  }
+  .seg .base{
+    position:absolute;left:0;right:0;bottom:4px;height:2px;background:rgba(255,255,255,.13);
+    transition:height .2s ease,background .2s ease;
+  }
+  .seg .fill{
+    position:absolute;left:0;bottom:4px;height:2px;width:0%;background:var(--accent);
+    box-shadow:0 0 9px rgba(255,196,107,.35);
+  }
+  .seg:hover .base{height:4px;background:rgba(255,255,255,.28)}
+  .seg:hover .fill{height:4px}
+  .seg.active .base{height:3px;background:rgba(255,255,255,.22)}
+  .seg.active .fill{height:3px}
+  .seg::after{
+    content:attr(data-label);position:absolute;left:50%;bottom:20px;transform:translate(-50%,5px);
+    padding:5px 9px;border:1px solid rgba(255,255,255,.12);border-radius:3px;
+    background:rgba(7,10,17,.94);color:#dfe5ee;font-size:9.5px;letter-spacing:.12em;
+    white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:3;
+  }
+  .seg:hover::after{opacity:1;transform:translate(-50%,0)}
+  .hud-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:18px}
+  .hud-meta{display:flex;align-items:center;gap:13px;font-size:10px;letter-spacing:.18em;color:rgba(178,189,204,.85);white-space:nowrap}
+  .hud-meta b{color:var(--accent);font-weight:500;font-variant-numeric:tabular-nums;transition:color .6s}
+  .hud-meta .nm{color:#d5dce7;letter-spacing:.22em}
+  .hud-controls{display:flex;align-items:center;gap:9px}
+  .ctl{
+    width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.15);
+    background:rgba(7,11,18,.55);display:grid;place-items:center;cursor:pointer;
+    transition:border-color .25s,color .25s,background .25s,transform .25s;
+  }
+  .ctl:hover{border-color:rgba(255,196,107,.7);color:var(--accent);background:rgba(255,196,107,.06)}
+  .ctl:active{transform:scale(.94)}
+  .ctl.primary{
+    width:45px;height:45px;border:0;background:#f3eee3;color:#080b12;
+  }
+  .ctl.primary:hover{background:#fff8ea;color:#080b12;border:0}
+  .ctl svg{display:block}
+  .i-pause,.i-play{transition:opacity .2s}
+  body[data-playing="true"] .i-play{display:none}
+  body[data-playing="false"] .i-pause{display:none}
+  .chip{
+    height:31px;padding:0 13px;border-radius:999px;border:1px solid rgba(255,255,255,.16);
+    background:rgba(7,11,18,.45);font-size:10px;letter-spacing:.12em;color:#c8d1dd;cursor:pointer;
+    transition:border-color .25s,color .25s;margin-left:3px;font-variant-numeric:tabular-nums;
+  }
+  .chip:hover{border-color:rgba(255,196,107,.7);color:var(--accent)}
+  .hud-hint{
+    justify-self:end;font-size:9.5px;letter-spacing:.14em;color:rgba(178,189,204,.58);
+    white-space:nowrap;text-align:right;
+  }
+  .hud-hint kbd{
+    font:inherit;color:rgba(214,222,234,.8);border:1px solid rgba(255,255,255,.16);
+    padding:1px 5px;border-radius:2px;margin:0 2px;
+  }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 860px){
+    #chrome{padding:18px 20px 0}
+    .brand-sub,.scale-note{display:none}
+    .brand{font-size:9px;letter-spacing:.28em}
+    #intro{padding-bottom:12vh}
+    #intro .intro-meta{margin-top:30px}
+    #intro h1{font-size:clamp(68px,19vw,110px);margin:20px 0 16px}
+    #intro .sub{font-size:11px;letter-spacing:.3em;text-indent:.3em}
+    #hero-wrap{
+      top:8vh;left:50%;right:auto;width:min(62vw,34vh);
+      transform:translateX(-50%);
+    }
+    #panel{
+      left:22px;right:22px;top:auto;bottom:104px;width:auto;transform:none;
+      display:flex;flex-direction:column;
+    }
+    .panel-head{margin-bottom:12px;gap:10px}
+    .panel-head .num{font-size:10px}
+    .panel-head .tag{font-size:8px;letter-spacing:.16em}
+    .panel-head .tag::before{width:16px;margin-right:7px}
+    #p-name{font-size:clamp(32px,9.4vw,44px)}
+    #p-en{margin-top:8px;font-size:8.5px;letter-spacing:.34em}
+    #p-desc{
+      margin-top:13px;font-size:12px;line-height:1.75;letter-spacing:.02em;color:#b6c0ce;
+      display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;max-width:none;
+    }
+    .stats{
+      grid-template-columns:repeat(3,1fr);gap:9px 12px;margin-top:15px;
+    }
+    .stat{padding-top:7px}
+    .stat .k{font-size:7.5px;letter-spacing:.12em;margin-bottom:3px}
+    .stat .v{font-size:10.5px;letter-spacing:0}
+    #narrative{display:none}
+    body[data-mode="closing"] #panel{
+      left:26px;right:26px;top:auto;bottom:104px;width:auto;transform:none;text-align:left;
+    }
+    body[data-mode="closing"] .panel-head{justify-content:flex-start}
+    body[data-mode="closing"] #p-desc{margin-left:0;margin-right:0}
+    body[data-mode="closing"] #p-name{font-size:clamp(34px,10vw,48px)}
+    .replay{margin-top:20px;padding:11px 24px}
+    .closing-note{display:none!important}
+    #hud{padding:0 18px 15px}
+    .track{margin-bottom:10px}
+    .hud-row{grid-template-columns:1fr auto;gap:10px}
+    .hud-meta .nm{display:none}
+    .hud-meta{font-size:9px}
+    .hud-hint{display:none}
+    .ctl{width:34px;height:34px}
+    .ctl.primary{width:40px;height:40px}
+    .ctl svg{width:14px;height:14px}
+    .chip{height:28px;padding:0 10px;font-size:9px}
+    .seg::after{display:none}
+  }
+  @media (max-height: 780px) and (min-width: 861px){
+    #panel{width:min(400px,40vw)}
+    #hero-wrap{width:min(38vw,68vh)}
+    #p-name{font-size:clamp(42px,4.8vw,62px)}
+    .panel-head{margin-bottom:14px}
+    #p-desc{font-size:13px;line-height:1.8;margin-top:16px}
+    .stats{margin-top:18px;gap:10px 22px}
+    #narrative{display:none}
+  }
+  @media (max-height: 560px) and (min-width: 600px) and (max-width: 900px){
+    #hero-wrap{top:50%;left:auto;right:4vw;width:min(34vw,66vh);transform:translateY(-50%)}
+    #panel{
+      left:4vw;right:auto;top:12vh;bottom:auto;transform:none;width:44vw;
+    }
+    .panel-head{margin-bottom:10px}
+    #p-name{font-size:clamp(28px,4.6vw,40px)}
+    #p-en{margin-top:7px}
+    #p-desc{display:none}
+    .stats{grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:14px}
+    .stat{padding-top:6px}
+    .stat .k{font-size:8px;margin-bottom:2px}
+    .stat .v{font-size:11px}
+    #narrative{display:none}
+    #chrome{padding-top:13px}
+    #intro h1{font-size:64px;margin:14px 0 12px}
+    #intro .intro-meta{margin-top:18px}
+    #intro{padding-bottom:14vh}
+    #hud{padding-bottom:12px}
+    .track{margin-bottom:8px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #intro.show .reveal{animation-duration:.001s}
+  }
+</style>
+</head>
+<body data-mode="intro" data-playing="true">
+  <canvas id="space" aria-hidden="true"></canvas>
+  <div id="scrim" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header id="chrome">
+    <div class="brand"><span class="dot"></span>SOLAR SYSTEM<span class="brand-sub">科普影像</span></div>
+    <div class="scale-note">轨道与大小经艺术化缩放</div>
+  </header>
+
+  <main id="stage">
+    <section id="intro">
+      <div class="intro-inner">
+        <div class="eyebrow reveal">Solar System · 科普影像</div>
+        <h1 class="reveal">太阳系</h1>
+        <p class="sub reveal">从一颗恒星，到八颗行星</p>
+        <div class="intro-meta reveal">共 13 章 · 约 2 分半 · 自动播放</div>
+      </div>
+    </section>
+
+    <section id="panel" aria-live="polite">
+      <div class="panel-head">
+        <span class="num" id="p-num">02</span>
+        <span class="tag" id="p-tag">恒星 · G2V 主序星</span>
+      </div>
+      <h2 id="p-name">太阳</h2>
+      <div id="p-en">THE SUN</div>
+      <p id="p-desc"></p>
+      <div class="stats" id="p-stats"></div>
+      <p class="closing-note">数据参考 NASA / JPL · 轨道距离与天体大小经过艺术压缩</p>
+      <button class="replay" id="replay" type="button">重新播放</button>
+    </section>
+
+    <div id="hero-wrap"><canvas id="hero" aria-hidden="true"></canvas></div>
+
+    <div id="narrative">
+      <div class="rule"></div>
+      <p id="narrative-text"></p>
+    </div>
+  </main>
+
+  <footer id="hud">
+    <div class="track" id="track" aria-label="章节进度"></div>
+    <div class="hud-row">
+      <div class="hud-meta">
+        <b id="hud-num">01 / 13</b>
+        <span class="nm" id="hud-name">序章 · 太阳系</span>
+      </div>
+      <div class="hud-controls">
+        <button class="ctl" id="btn-prev" type="button" title="上一章" aria-label="上一章">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>
+        </button>
+        <button class="ctl primary" id="btn-play" type="button" title="播放 / 暂停" aria-label="播放或暂停">
+          <svg class="i-play" viewBox="0 0 24 24" width="16" height="16"><path d="M8.5 5.2v13.6L19 12z" fill="currentColor"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" width="16" height="16"><path d="M7 5h3.4v14H7zm6.6 0H17v14h-3.4z" fill="currentColor"/></svg>
+        </button>
+        <button class="ctl" id="btn-next" type="button" title="下一章" aria-label="下一章">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>
+        </button>
+        <button class="chip" id="btn-speed" type="button" title="播放速度" aria-label="播放速度">1×</button>
+      </div>
+      <div class="hud-hint"><kbd>空格</kbd> 播放 / 暂停 &nbsp;·&nbsp; <kbd>←</kbd><kbd>→</kbd> 切换章节</div>
+    </div>
+  </footer>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ============================================================
+     基础工具
+  ============================================================ */
+  const TAU = Math.PI * 2;
+  const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+  const clamp01 = v => clamp(v,0,1);
+  const smoothstep = (e0,e1,x) => { const t = clamp01((x-e0)/(e1-e0)); return t*t*(3-2*t); };
+  const pad2 = n => String(n).padStart(2,'0');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  function rgba(hex, a){
+    const h = hex.replace('#','');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+  }
+  function mulberry32(seed){
+    let a = seed >>> 0;
+    return function(){
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function strSeed(s){
+    let h = 17;
+    for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) >>> 0;
+    return h;
+  }
+
+  /* ============================================================
+     章节内容
+  ============================================================ */
+  const CHAPTERS = [
+    { type:'intro', label:'序章 · 太阳系', accent:'#ffc46b', dur:8200 },
+
+    {
+      type:'split', hero:'sun', label:'太阳', name:'太阳', en:'THE SUN',
+      tag:'恒星 · G2V 主序星', accent:'#ffc46b', dur:13000,
+      desc:'太阳是一颗中等质量的黄矮星。它占据了整个太阳系 99.86% 的质量，每秒把约 6 亿吨氢聚变成氦，用光与热维系着这里的一切。',
+      narration:'它是太阳系的绝对中心，也是我们唯一的恒星。',
+      stats:[
+        ['直径','1,392,000 km'],['质量占比','99.86%'],
+        ['表面温度','约 5,500°C'],['核心温度','约 1,500 万°C'],
+        ['自转周期','约 25 天'],['光到地球','8 分 20 秒']
+      ]
+    },
+    {
+      type:'split', hero:'mercury', label:'水星', name:'水星', en:'MERCURY',
+      tag:'类地行星 · 最内侧', accent:'#c0b3a2', dur:11000,
+      desc:'水星没有真正的大气层来保存热量。白天可达 430°C，夜晚骤降至 -180°C，表面布满撞击坑，像一颗被时间冻结的岩石。',
+      narration:'水星离太阳最近，也是跑得最快的行星——88 天，就完成一次公转。',
+      stats:[
+        ['直径','4,879 km'],['距太阳','0.39 AU'],
+        ['公转周期','88 天'],['自转周期','58.6 天'],
+        ['卫星','0'],['表面温差','-180 ~ 430°C']
+      ]
+    },
+    {
+      type:'split', hero:'venus', label:'金星', name:'金星', en:'VENUS',
+      tag:'类地行星 · 失控温室', accent:'#e8c47c', dur:11000,
+      desc:'金星与地球大小相近，却走向了另一个极端。浓厚的二氧化碳大气造成失控温室效应，地表温度约 465°C，气压是地球的 92 倍。',
+      narration:'在金星，太阳从西边升起。它逆向自转，是太阳系中最炽热的行星。',
+      stats:[
+        ['直径','12,104 km'],['距太阳','0.72 AU'],
+        ['公转周期','225 天'],['自转周期','243 天 · 逆向'],
+        ['表面温度','约 465°C'],['大气压','92 × 地球']
+      ]
+    },
+    {
+      type:'split', hero:'earth', label:'地球', name:'地球', en:'EARTH',
+      tag:'类地行星 · 我们的家', accent:'#7cc4f5', dur:13000,
+      desc:'地球位于太阳系的宜居带。磁场偏转太阳风，大气锁住热量，液态水覆盖 71% 的表面——已知宇宙中，只有这里被确认存在生命。',
+      narration:'这颗淡蓝色的星球，是目前已知唯一的生命家园。',
+      stats:[
+        ['直径','12,742 km'],['距太阳','1 AU'],
+        ['公转周期','365.25 天'],['自转周期','23.93 小时'],
+        ['卫星','1'],['液态水','71% 表面']
+      ]
+    },
+    {
+      type:'split', hero:'mars', label:'火星', name:'火星', en:'MARS',
+      tag:'类地行星 · 红色荒漠', accent:'#dd8058', dur:11000,
+      desc:'火星曾拥有河流、湖泊与海洋。今天，水大多冻结在地下与极冠。奥林帕斯山高约 22 公里，是太阳系最高的火山。',
+      narration:'火星的红色，来自土壤中的氧化铁——一颗生锈的星球。',
+      stats:[
+        ['直径','6,779 km'],['距太阳','1.52 AU'],
+        ['公转周期','687 天'],['自转周期','24.6 小时'],
+        ['卫星','2'],['最高峰','约 22 km']
+      ]
+    },
+    {
+      type:'split', hero:'belt', label:'小行星带', name:'小行星带', en:'ASTEROID BELT',
+      tag:'火星与木星之间 · 太阳系的化石', accent:'#b6a48d', dur:12000,
+      desc:'小行星带位于火星与木星之间。这里并不拥挤：天体之间的平均距离可达数百万公里。它们保存着太阳系诞生之初的物质。',
+      narration:'它们像化石一样，记录着行星形成之前的岁月。',
+      stats:[
+        ['位置','2.2 – 3.2 AU'],['已知天体','130 万+'],
+        ['最大天体','谷神星 939 km'],['总质量','约月球的 3%'],
+        ['公转周期','3 – 6 年'],['主要成分','岩石与金属']
+      ]
+    },
+    {
+      type:'split', hero:'jupiter', label:'木星', name:'木星', en:'JUPITER',
+      tag:'气态巨行星 · 行星之王', accent:'#e2b184', dur:12000,
+      desc:'木星的质量是其他所有行星总和的 2.5 倍。大红斑是一场持续数百年的风暴，直径比地球还大。它强大的引力，像盾牌一样保护着内太阳系。',
+      narration:'行星之王的大气中，风暴从未停止。',
+      stats:[
+        ['直径','139,820 km'],['距太阳','5.2 AU'],
+        ['公转周期','11.86 年'],['自转周期','9.93 小时'],
+        ['卫星','95+'],['质量','318 × 地球']
+      ]
+    },
+    {
+      type:'split', hero:'saturn', label:'土星', name:'土星', en:'SATURN',
+      tag:'气态巨行星 · 光环', accent:'#e8d3a0', dur:12000,
+      desc:'土星环宽达数十万公里，主要由水冰颗粒组成，厚度却只有几十米到一公里。土星的平均密度比水还低。',
+      narration:'如果有一个足够大的水池，土星会浮起来。',
+      stats:[
+        ['直径','116,460 km'],['距太阳','9.58 AU'],
+        ['公转周期','29.5 年'],['自转周期','10.7 小时'],
+        ['卫星','274'],['平均密度','0.69 g/cm³']
+      ]
+    },
+    {
+      type:'split', hero:'uranus', label:'天王星', name:'天王星', en:'URANUS',
+      tag:'冰巨星 · 躺着的行星', accent:'#9fe0e4', dur:11000,
+      desc:'天王星的自转轴倾斜约 98°，几乎“躺”在轨道上滚动。这让它的两极各自经历长达 42 年的极昼与极夜。',
+      narration:'它安静、冰冷，也是太阳系中最特立独行的行星。',
+      stats:[
+        ['直径','50,724 km'],['距太阳','19.2 AU'],
+        ['公转周期','84 年'],['自转周期','17.2 小时 · 逆向'],
+        ['卫星','28'],['轴倾角','98°']
+      ]
+    },
+    {
+      type:'split', hero:'neptune', label:'海王星', name:'海王星', en:'NEPTUNE',
+      tag:'冰巨星 · 最外侧的行星', accent:'#7e9cff', dur:11000,
+      desc:'海王星先被数学计算“预言”，随后才被望远镜发现。它的大气中有太阳系最猛烈的风，时速可达 2,100 公里。',
+      narration:'阳光抵达这里，需要四个多小时。',
+      stats:[
+        ['直径','49,244 km'],['距太阳','30.1 AU'],
+        ['公转周期','164.8 年'],['自转周期','16.1 小时'],
+        ['卫星','16'],['最大风速','约 2,100 km/h']
+      ]
+    },
+    {
+      type:'wide', hero:null, label:'太阳系的边疆', name:'柯伊伯带', en:'THE KUIPER BELT',
+      tag:'太阳系的边疆 · FRONTIER', accent:'#a7b8d8', dur:13000,
+      desc:'柯伊伯带从海王星轨道向外延伸，冥王星、阋神星等矮行星在其中运行。再往外，太阳风与星际介质相遇，形成日球层顶。',
+      narration:'2012 年，旅行者 1 号穿过日球层顶，成为第一个进入星际空间的人造物体。',
+      stats:[
+        ['范围','30 – 50+ AU'],['代表天体','冥王星 / 阋神星'],
+        ['日球层顶','约 120 AU'],['旅行者 1 号','1977 年发射'],
+        ['任务状态','已进入星际空间'],['光到边疆','4 – 7 小时']
+      ]
+    },
+    {
+      type:'closing', hero:null, label:'尾声', name:'我们生于星尘', en:'WE ARE MADE OF STARDUST',
+      tag:'尾声 · EPILOGUE', accent:'#c9d4ee', dur:10000,
+      desc:'太阳系只是银河系数千亿颗恒星系统中的一员。而组成我们身体的原子，几乎都来自远古恒星的核聚变。\n从太阳出发，我们终于抵达了自己。',
+      narration:'',
+      stats:[]
+    }
+  ];
+
+  /* ============================================================
+     画布与状态
+  ============================================================ */
+  const space = document.getElementById('space');
+  const sctx = space.getContext('2d');
+  const hero = document.getElementById('hero');
+  const hctx = hero.getContext('2d');
+
+  const els = {
+    intro: document.getElementById('intro'),
+    stage: document.getElementById('stage'),
+    panel: document.getElementById('panel'),
+    heroWrap: document.getElementById('hero-wrap'),
+    narrative: document.getElementById('narrative'),
+    narrativeText: document.getElementById('narrative-text'),
+    num: document.getElementById('p-num'),
+    tag: document.getElementById('p-tag'),
+    name: document.getElementById('p-name'),
+    en: document.getElementById('p-en'),
+    desc: document.getElementById('p-desc'),
+    stats: document.getElementById('p-stats'),
+    track: document.getElementById('track'),
+    hudNum: document.getElementById('hud-num'),
+    hudName: document.getElementById('hud-name'),
+    btnPrev: document.getElementById('btn-prev'),
+    btnNext: document.getElementById('btn-next'),
+    btnPlay: document.getElementById('btn-play'),
+    btnSpeed: document.getElementById('btn-speed'),
+    replay: document.getElementById('replay')
+  };
+
+  let DPR = Math.min(2, window.devicePixelRatio || 1);
+  let spaceW = 0, spaceH = 0, heroW = 0, heroH = 0;
+  let baseZoom = 1;
+
+  const S = {
+    idx: 0,
+    playing: true,
+    speed: 1,
+    elapsed: 0,
+    worldTime: 0,
+    transitioning: false,
+    heroType: null,
+    last: performance.now(),
+    started: false
+  };
+
+  const cam = { x:0, y:0, zoom:1 };
+  let camTarget = { x:0, y:0, zoom:1 };
+  const TILT = 0.56;
+
+  let stars = [];
+  let meteors = [];
+  let meteorTimer = 7;
+  let segs = [];
+
+  /* ============================================================
+     太阳系模型（距离与体积经过艺术压缩）
+  ============================================================ */
+  const PLANETS = [
+    { id:'mercury', name:'水星', a:86,  size:4.0,  years:0.241, light:'#d4c9ba', dark:'#665d53', ang:2.1 },
+    { id:'venus',   name:'金星', a:116, size:5.4,  years:0.615, light:'#f6dfa4', dark:'#9c7644', ang:4.4 },
+    { id:'earth',   name:'地球', a:150, size:5.8,  years:1,     light:'#9ed4ff', dark:'#1b4a78', ang:0.7 },
+    { id:'mars',    name:'火星', a:192, size:4.8,  years:1.881, light:'#eda17c', dark:'#833a29', ang:5.2 },
+    { id:'jupiter', name:'木星', a:300, size:15,   years:11.86, light:'#f1d5ad', dark:'#956441', ang:2.8 },
+    { id:'saturn',  name:'土星', a:380, size:12.5, years:29.46, light:'#f5e6c0', dark:'#a3875c', ang:3.9 },
+    { id:'uranus',  name:'天王星', a:458, size:8.5, years:84,   light:'#cbf4f6', dark:'#528c94', ang:1.2 },
+    { id:'neptune', name:'海王星', a:524, size:8.0, years:164.8, light:'#96afff', dark:'#2c3e9d', ang:5.9 }
+  ];
+  PLANETS.forEach((p,i) => {
+    p.w = TAU / (8 + 6 * Math.sqrt(p.years));
+    p.phase = p.ang + i * 0.37;
+  });
+
+  function focusInfo(){
+    const ch = CHAPTERS[S.idx];
+    if(ch.hero === 'belt') return { kind:'belt', radius:238 };
+    if(ch.type === 'wide') return { kind:'belt', radius:660 };
+    if(ch.hero === 'sun') return { kind:'sun' };
+    if(ch.hero){
+      const p = PLANETS.find(p => p.id === ch.hero);
+      if(p) return { kind:'planet', planet:p };
+    }
+    return { kind:'none' };
+  }
+
+  /* ============================================================
+     尺寸
+  ============================================================ */
+  function sizeSpace(){
+    const oldZoom = cam.zoom;
+    spaceW = window.innerWidth;
+    spaceH = window.innerHeight;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    space.width = Math.round(spaceW * DPR);
+    space.height = Math.round(spaceH * DPR);
+    sctx.setTransform(DPR,0,0,DPR,0,0);
+    buildStars();
+    computeBaseZoom();
+    camTarget = cameraTargetFor(CHAPTERS[S.idx]);
+    if(S.started){
+      cam.zoom = clamp(oldZoom, camTarget.zoom * 0.4, camTarget.zoom * 2.2);
+    } else {
+      cam.zoom = camTarget.zoom * 1.26;
+    }
+    cam.x = 0; cam.y = 0;
+    sizeHero();
+  }
+
+  function computeBaseZoom(){
+    if(spaceW < 700){
+      baseZoom = spaceW / 880;
+    } else {
+      baseZoom = Math.min(spaceW / 1450, spaceH / 980);
+    }
+  }
+
+  function cameraTargetFor(ch){
+    let f = 0.95;
+    if(ch.type === 'intro') f = 1.06;
+    else if(ch.type === 'wide') f = 0.8;
+    else if(ch.type === 'closing') f = 0.66;
+    else if(ch.hero === 'belt') f = 1.42;
+    else if(ch.hero === 'sun') f = 1.15;
+    return { x:0, y:0, zoom: baseZoom * f };
+  }
+
+  function sizeHero(){
+    const rect = hero.getBoundingClientRect();
+    if(rect.width < 4 || rect.height < 4) return;
+    heroW = rect.width;
+    heroH = rect.height;
+    hero.width = Math.round(heroW * DPR);
+    hero.height = Math.round(heroH * DPR);
+    hctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+
+  function buildStars(){
+    stars = [];
+    const count = Math.round(clamp(spaceW * spaceH / 5600, 120, 430));
+    const rnd = mulberry32(9137);
+    for(let i=0;i<count;i++){
+      stars.push({
+        x:rnd()*spaceW,
+        y:rnd()*spaceH,
+        r:0.25 + rnd()*rnd()*1.25,
+        a:0.16 + rnd()*0.55,
+        tw:0.3 + rnd()*1.6,
+        ph:rnd()*TAU,
+        big:rnd() > 0.955
+      });
+    }
+  }
+
+  /* ============================================================
+     背景渲染
+  ============================================================ */
+  const beltRocks = [];
+  const kuiperRocks = [];
+  (function initBelts(){
+    const rnd = mulberry32(77123);
+    for(let i=0;i<260;i++){
+      beltRocks.push({
+        a: 219 + rnd()*39,
+        ang: rnd()*TAU,
+        sp: 0.032 + rnd()*0.026,
+        s: 0.5 + rnd()*1.3,
+        al: 0.18 + rnd()*0.45,
+        warm: rnd() > 0.45
+      });
+    }
+    for(let i=0;i<330;i++){
+      kuiperRocks.push({
+        a: 588 + rnd()*122,
+        ang: rnd()*TAU,
+        sp: 0.008 + rnd()*0.008,
+        s: 0.4 + rnd()*1.0,
+        al: 0.12 + rnd()*0.35
+      });
+    }
+  })();
+
+  function drawStars(t){
+    const drift = Math.sin(t*0.02)*4;
+    for(const st of stars){
+      const tw = 0.7 + 0.3 * Math.sin(t*st.tw + st.ph);
+      const x = st.x + drift * (st.r*0.6);
+      const y = st.y;
+      sctx.globalAlpha = st.a * tw;
+      sctx.fillStyle = st.big ? '#e8efff' : '#dfe8f8';
+      sctx.beginPath();
+      sctx.arc(x, y, st.r, 0, TAU);
+      sctx.fill();
+      if(st.big){
+        sctx.globalAlpha = st.a * tw * 0.4;
+        sctx.fillRect(x-3.5, y-0.3, 7, 0.6);
+        sctx.fillRect(x-0.3, y-3.5, 0.6, 7);
+      }
+    }
+    sctx.globalAlpha = 1;
+  }
+
+  function drawMeteors(t){
+    for(let i=meteors.length-1;i>=0;i--){
+      const m = meteors[i];
+      if(m.life <= 0){ meteors.splice(i,1); continue; }
+      const x = m.x, y = m.y;
+      const len = m.len;
+      const g = sctx.createLinearGradient(x, y, x - len*Math.cos(m.ang), y - len*Math.sin(m.ang));
+      g.addColorStop(0, rgba('#ffffff', m.life*0.8));
+      g.addColorStop(1, rgba('#9cc7ff', 0));
+      sctx.strokeStyle = g;
+      sctx.lineWidth = 1.1;
+      sctx.beginPath();
+      sctx.moveTo(x, y);
+      sctx.lineTo(x - len*Math.cos(m.ang), y - len*Math.sin(m.ang));
+      sctx.stroke();
+    }
+  }
+
+  function updateMeteors(dt){
+    if(S.playing){
+      meteorTimer -= dt * S.speed;
+      if(meteorTimer <= 0){
+        meteorTimer = 7 + Math.random()*13;
+        const ang = 0.35 + Math.random()*0.5;
+        meteors.push({
+          x: Math.random()*spaceW*0.9,
+          y: Math.random()*spaceH*0.4,
+          ang,
+          len: 70 + Math.random()*90,
+          life: 1,
+          vx: Math.cos(ang)*(420+Math.random()*220),
+          vy: Math.sin(ang)*(420+Math.random()*220)
+        });
+      }
+    }
+    for(const m of meteors){
+      m.x += m.vx * dt * (S.playing ? S.speed : 0);
+      m.y += m.vy * dt * (S.playing ? S.speed : 0);
+      m.life -= dt * (S.playing ? S.speed : 0) * 0.9;
+    }
+  }
+
+  function drawSpace(t){
+    sctx.clearRect(0,0,spaceW,spaceH);
+    drawStars(t);
+
+    const cx = spaceW/2, cy = spaceH*0.52;
+    const z = cam.zoom;
+    const sunX = cx - cam.x*z;
+    const sunY = cy - cam.y*z*TILT;
+    const focus = focusInfo();
+
+    // 柯伊伯带
+    for(const k of kuiperRocks){
+      const ang = k.ang + t*k.sp;
+      const x = sunX + Math.cos(ang)*k.a*z;
+      const y = sunY + Math.sin(ang)*k.a*z*TILT;
+      const wide = CHAPTERS[S.idx].type === 'wide';
+      sctx.globalAlpha = k.al * (focus.kind === 'belt' && wide ? 2.4 : 0.65);
+      sctx.fillStyle = '#cfe3ff';
+      const ks = k.s*z*(wide ? 1.6 : 1.2) + 0.4;
+      sctx.fillRect(x, y, ks, ks);
+    }
+    sctx.globalAlpha = 1;
+
+    // 轨道
+    for(const p of PLANETS){
+      const rx = p.a*z, ry = p.a*z*TILT;
+      if(rx < 1) continue;
+      const active = focus.kind === 'planet' && focus.planet.id === p.id;
+      sctx.beginPath();
+      sctx.ellipse(sunX, sunY, rx, ry, 0, 0, TAU);
+      sctx.strokeStyle = active ? rgba(CHAPTERS[S.idx].accent, .42) : 'rgba(206,222,248,.1)';
+      sctx.lineWidth = active ? 1.2 : 1;
+      if(active){
+        sctx.save();
+        sctx.shadowColor = rgba(CHAPTERS[S.idx].accent, .5);
+        sctx.shadowBlur = 10;
+        sctx.stroke();
+        sctx.restore();
+      } else {
+        sctx.stroke();
+      }
+    }
+
+    // 小行星带
+    const beltActive = focus.kind === 'belt' && CHAPTERS[S.idx].type !== 'wide';
+    for(const a of beltRocks){
+      const ang = a.ang + t*a.sp;
+      const x = sunX + Math.cos(ang)*a.a*z;
+      const y = sunY + Math.sin(ang)*a.a*z*TILT;
+      sctx.globalAlpha = a.al * (beltActive ? 1.15 : 0.55);
+      sctx.fillStyle = a.warm ? '#c9b291' : '#9da4ad';
+      const s = Math.max(0.6, a.s*z*0.85);
+      sctx.fillRect(x, y, s, s);
+    }
+    sctx.globalAlpha = 1;
+
+    // 高亮带
+    if(focus.kind === 'belt'){
+      const rr = focus.radius;
+      const wide = CHAPTERS[S.idx].type === 'wide';
+      sctx.beginPath();
+      sctx.ellipse(sunX, sunY, rr*z, rr*z*TILT, 0, 0, TAU);
+      sctx.strokeStyle = rgba(CHAPTERS[S.idx].accent, wide ? .42 : .28);
+      sctx.lineWidth = 1;
+      sctx.setLineDash([2,7]);
+      sctx.stroke();
+      sctx.setLineDash([]);
+    }
+
+    // 太阳光晕
+    const sunR = Math.max(5, 26*z);
+    const pulse = 1 + Math.sin(t*0.7)*0.03;
+    const glow = sctx.createRadialGradient(sunX, sunY, sunR*0.4, sunX, sunY, sunR*8.5*pulse);
+    glow.addColorStop(0, 'rgba(255,246,214,.95)');
+    glow.addColorStop(0.08, 'rgba(255,221,150,.55)');
+    glow.addColorStop(0.22, 'rgba(255,168,70,.20)');
+    glow.addColorStop(0.55, 'rgba(255,120,30,.055)');
+    glow.addColorStop(1, 'rgba(255,100,20,0)');
+    sctx.fillStyle = glow;
+    sctx.beginPath();
+    sctx.arc(sunX, sunY, sunR*8.5*pulse, 0, TAU);
+    sctx.fill();
+
+    // 行星
+    for(const p of PLANETS){
+      const ang = p.phase + t*p.w;
+      const x = sunX + Math.cos(ang)*p.a*z;
+      const y = sunY + Math.sin(ang)*p.a*z*TILT;
+      const r = Math.max(1.8, p.size*z);
+
+      if(p.id === 'saturn'){
+        sctx.save();
+        sctx.translate(x,y);
+        sctx.rotate(-0.32);
+        sctx.beginPath();
+        sctx.ellipse(0,0,r*1.9,r*0.52,0,0,TAU);
+        sctx.strokeStyle = 'rgba(238,220,178,.5)';
+        sctx.lineWidth = Math.max(0.7, r*0.42);
+        sctx.stroke();
+        sctx.restore();
+      }
+
+      const g = sctx.createRadialGradient(x-r*0.35, y-r*0.35, r*0.08, x, y, r*1.04);
+      g.addColorStop(0, p.light);
+      g.addColorStop(0.7, p.dark);
+      g.addColorStop(1, 'rgba(0,0,0,.9)');
+      sctx.fillStyle = g;
+      sctx.beginPath();
+      sctx.arc(x, y, r, 0, TAU);
+      sctx.fill();
+
+      if(p.id === 'jupiter' || p.id === 'saturn'){
+        sctx.globalAlpha = .22;
+        sctx.strokeStyle = 'rgba(0,0,0,.8)';
+        sctx.lineWidth = Math.max(0.5, r*0.16);
+        sctx.beginPath();
+        sctx.ellipse(x, y, r*0.92, r*0.9, 0, 0.2, 2.1);
+        sctx.stroke();
+        sctx.globalAlpha = 1;
+      }
+
+      if(focus.kind === 'planet' && focus.planet.id === p.id){
+        sctx.beginPath();
+        sctx.arc(x, y, r + 6 + Math.sin(t*2)*1.5, 0, TAU);
+        sctx.strokeStyle = rgba(CHAPTERS[S.idx].accent, .45);
+        sctx.lineWidth = 1;
+        sctx.stroke();
+      }
+    }
+
+    // 太阳本体
+    const core = sctx.createRadialGradient(sunX-sunR*0.2, sunY-sunR*0.2, sunR*0.08, sunX, sunY, sunR);
+    core.addColorStop(0, '#fffdf1');
+    core.addColorStop(0.45, '#ffe9ad');
+    core.addColorStop(0.8, '#ffc154');
+    core.addColorStop(1, '#ff982c');
+    sctx.fillStyle = core;
+    sctx.beginPath();
+    sctx.arc(sunX, sunY, sunR, 0, TAU);
+    sctx.fill();
+
+    drawMeteors(t);
+  }
+
+  /* ============================================================
+     噪声与纹理（程序化生成星球表面）
+  ============================================================ */
+  const NOISE = {
+    hash(x,y,seed){
+      let h = Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(seed, 1013904223);
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      h ^= h >>> 16;
+      return (h >>> 0) / 4294967296;
+    },
+    value(u,v,fx,fy,seed){
+      const x = u*fx, y = v*fy;
+      const xi = Math.floor(x), yi = Math.floor(y);
+      let xf = x - xi, yf = y - yi;
+      xf = xf*xf*(3-2*xf);
+      yf = yf*yf*(3-2*yf);
+      const x0 = ((xi % fx) + fx) % fx;
+      const x1 = (((xi+1) % fx) + fx) % fx;
+      const y0 = ((yi % fy) + fy) % fy;
+      const y1 = (((yi+1) % fy) + fy) % fy;
+      const a = this.hash(x0,y0,seed), b = this.hash(x1,y0,seed);
+      const c = this.hash(x0,y1,seed), d = this.hash(x1,y1,seed);
+      return (a + (b-a)*xf) * (1-yf) + (c + (d-c)*xf) * yf;
+    },
+    fbm(u,v,seed,oct){
+      let amp = 0.5, sum = 0, tot = 0, fx = 4, fy = 3;
+      for(let i=0;i<oct;i++){
+        sum += amp * this.value(u,v,fx,fy,seed + i*137);
+        tot += amp;
+        amp *= 0.5;
+        fx *= 2;
+        fy *= 2;
+      }
+      return sum / tot;
+    }
+  };
+
+  function ramp(stops, t){
+    t = clamp01(t);
+    for(let i=1;i<stops.length;i++){
+      if(t <= stops[i][0]){
+        const a = stops[i-1], b = stops[i];
+        const k = (t - a[0]) / ((b[0] - a[0]) || 1);
+        return [
+          a[1][0] + (b[1][0]-a[1][0])*k,
+          a[1][1] + (b[1][1]-a[1][1])*k,
+          a[1][2] + (b[1][2]-a[1][2])*k
+        ];
+      }
+    }
+    return stops[stops.length-1][1].slice();
+  }
+  function mixColor(a,b,k){
+    return [a[0]+(b[0]-a[0])*k, a[1]+(b[1]-a[1])*k, a[2]+(b[2]-a[2])*k];
+  }
+
+  const PALETTE = {
+    mercury: [[0,[126,119,109]],[.35,[160,152,140]],[.7,[182,174,162]],[1,[143,136,126]]],
+    venus: [[0,[186,150,90]],[.25,[216,182,120]],[.5,[236,211,156]],[.75,[217,183,122]],[1,[187,147,89]]],
+    mars: [[0,[96,50,38]],[.3,[134,66,45]],[.55,[174,91,62]],[.75,[201,118,82]],[1,[220,146,108]]],
+    land: [[0,[28,62,42]],[.3,[64,96,56]],[.55,[112,110,72]],[.75,[151,133,93]],[1,[194,175,133]]],
+    ocean: [[0,[4,22,46]],[.35,[8,46,78]],[.65,[14,74,108]],[.85,[28,100,132]],[1,[46,122,146]]],
+    jupiter: [
+      [0,[214,196,172]],[.06,[236,222,203]],[.12,[190,151,113]],[.18,[229,202,167]],
+      [.24,[160,112,78]],[.30,[214,176,137]],[.37,[239,220,193]],[.43,[197,155,116]],
+      [.50,[231,202,170]],[.57,[173,124,86]],[.64,[223,185,146]],[.71,[204,166,129]],
+      [.78,[238,220,198]],[.85,[185,143,105]],[.91,[222,196,168]],[1,[205,185,161]]
+    ],
+    saturn: [
+      [0,[230,216,183]],[.1,[244,232,205]],[.2,[213,192,153]],[.3,[238,224,193]],
+      [.4,[222,201,164]],[.5,[246,234,208]],[.6,[214,192,154]],[.7,[236,223,193]],
+      [.8,[205,183,146]],[.9,[239,228,202]],[1,[220,205,175]]
+    ],
+    uranus: [[0,[154,206,211]],[.35,[176,226,229]],[.6,[196,238,240]],[1,[150,198,205]]],
+    neptune: [[0,[45,74,172]],[.3,[64,100,208]],[.55,[50,80,185]],[.8,[73,111,219]],[1,[36,60,148]]]
+  };
+
+  // 大陆轮廓（经纬度，仅作艺术化示意）
+  const EARTH_SHAPES = [
+    [[-168,66],[-156,71],[-128,70],[-100,72],[-82,70],[-62,60],[-55,50],[-67,45],[-70,41],[-76,35],[-81,25],[-90,29],[-97,26],[-105,21],[-112,29],[-118,33],[-124,40],[-125,49],[-133,55],[-150,59],[-160,55]],
+    [[-95,17],[-88,18],[-82,12],[-77,8],[-79,12],[-84,10],[-92,16]],
+    [[-81,8],[-72,11],[-62,10],[-52,5],[-35,-6],[-38,-20],[-48,-29],[-58,-38],[-64,-50],[-72,-54],[-75,-45],[-73,-30],[-79,-14],[-81,-4],[-78,2]],
+    [[-17,15],[-10,28],[-6,35],[10,37],[20,32],[32,31],[43,12],[51,11],[49,2],[41,-10],[35,-22],[27,-34],[18,-34],[12,-18],[9,4],[-4,5],[-8,12]],
+    [[-10,43],[-8,50],[0,54],[6,57],[10,63],[18,69],[30,71],[60,73],[95,76],[130,72],[160,62],[155,50],[140,46],[126,37],[122,30],[112,22],[105,18],[100,10],[95,16],[88,22],[80,15],[72,22],[62,26],[50,20],[40,32],[28,37],[20,40],[12,38],[5,42]],
+    [[67,24],[72,20],[77,8],[83,18],[88,22],[80,24]],
+    [[34,29],[43,31],[52,25],[56,18],[49,12],[38,20]],
+    [[114,-22],[122,-14],[131,-12],[142,-18],[147,-25],[153,-28],[150,-37],[140,-38],[129,-32],[115,-34],[113,-26]],
+    [[-45,60],[-30,68],[-22,76],[-33,83],[-58,80],[-55,70]],
+    [[44,-13],[50,-16],[48,-25],[43,-22]],
+    [[-6,50],[0,52],[2,58],[-4,59],[-6,54]],
+    [[130,32],[136,34],[142,42],[145,45],[141,38],[135,33]],
+    [[166,-46],[174,-41],[173,-35],[168,-43]],
+    [[95,5],[105,0],[115,-3],[125,-5],[135,-4],[140,-8],[130,-9],[118,-8],[108,-5],[98,0]]
+  ];
+
+  function smoothBlob(g, pts){
+    const n = pts.length;
+    const mid = (a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    const m0 = mid(pts[n-1],pts[0]);
+    g.beginPath();
+    g.moveTo(m0[0],m0[1]);
+    for(let i=0;i<n;i++){
+      const curr = pts[i], next = pts[(i+1)%n];
+      const m = mid(curr,next);
+      g.quadraticCurveTo(curr[0],curr[1],m[0],m[1]);
+    }
+    g.closePath();
+    g.fill();
+  }
+
+  function paintEarth(g, W, H, seed){
+    // 大陆遮罩
+    const mask = document.createElement('canvas');
+    mask.width = W; mask.height = H;
+    const mg = mask.getContext('2d');
+    mg.fillStyle = '#000';
+    mg.fillRect(0,0,W,H);
+    mg.fillStyle = '#fff';
+    for(const shape of EARTH_SHAPES){
+      const pts = shape.map(([lon,lat]) => [((lon+180)/360)*W, ((90-lat)/180)*H]);
+      for(const dx of [-W,0,W]){
+        smoothBlob(mg, pts.map(([x,y])=>[x+dx,y]));
+      }
+    }
+    const md = mg.getImageData(0,0,W,H).data;
+
+    const img = g.createImageData(W,H), d = img.data;
+    for(let y=0;y<H;y++){
+      const v = y/H;
+      const lat = Math.abs(v-0.5)*2;
+      for(let x=0;x<W;x++){
+        const i = (y*W+x)*4;
+        const u = x/W;
+        const n = NOISE.fbm(u,v,seed,4);
+        const det = NOISE.fbm(u,v*2.3,seed+41,3);
+        const m = md[i]/255;
+        const isLand = (m + (n-0.5)*0.42 + (det-0.5)*0.18) > 0.5;
+        let c;
+        if(isLand){
+          const dry = NOISE.fbm(u, v*1.65, seed+71, 2);
+          const t = 0.1 + lat*0.52 + (dry-0.45)*0.85 + (det-0.5)*0.16;
+          c = ramp(PALETTE.land, clamp01(t));
+        } else {
+          c = ramp(PALETTE.ocean, clamp01(0.2 + (n-0.35)*1.45 + (1-lat)*0.22));
+          if(m > 0.02) c = mixColor(c,[30,108,134], Math.min(0.65, m*0.8));
+        }
+        const ice = smoothstep(0.83,0.945, lat + (n-0.5)*0.14);
+        if(ice > 0) c = mixColor(c,[231,242,248],ice);
+        const grain = (NOISE.hash(x,y,seed+7)-0.5)*8;
+        d[i] = clamp(c[0]+grain,0,255);
+        d[i+1] = clamp(c[1]+grain,0,255);
+        d[i+2] = clamp(c[2]+grain,0,255);
+        d[i+3] = 255;
+      }
+    }
+    g.putImageData(img,0,0);
+  }
+
+  function paintRock(g, W, H, seed, palette, tint){
+    const img = g.createImageData(W,H), d = img.data;
+    for(let y=0;y<H;y++){
+      const v = y/H;
+      for(let x=0;x<W;x++){
+        const u = x/W;
+        const n = NOISE.fbm(u,v,seed,4);
+        const big = NOISE.fbm(u,v,seed+61,2);
+        let c = ramp(palette, clamp01(0.12 + n*0.8));
+        const shade = 0.8 + (big-0.5)*0.5;
+        c = [c[0]*shade*tint[0], c[1]*shade*tint[1], c[2]*shade*tint[2]];
+        const grain = (NOISE.hash(x,y,seed+3)-0.5)*10;
+        const i = (y*W+x)*4;
+        d[i] = clamp(c[0]+grain,0,255);
+        d[i+1] = clamp(c[1]+grain,0,255);
+        d[i+2] = clamp(c[2]+grain,0,255);
+        d[i+3] = 255;
+      }
+    }
+    g.putImageData(img,0,0);
+  }
+
+  function paintVenus(g,W,H,seed){
+    const img = g.createImageData(W,H), d = img.data;
+    for(let y=0;y<H;y++){
+      const v = y/H;
+      for(let x=0;x<W;x++){
+        const u = x/W;
+        const swirl = NOISE.fbm(u, v*1.7, seed, 3);
+        const detail = NOISE.fbm(u, v*4.1, seed+29, 2);
+        let c = ramp(PALETTE.venus, clamp01(0.4 + (swirl-0.5)*0.85 + (detail-0.5)*0.16));
+        const glow = smoothstep(0.35,0.0,Math.abs(v-0.5)-0.35)*10;
+        c = [c[0]+glow, c[1]+glow, c[2]+glow*0.8];
+        const i = (y*W+x)*4;
+        d[i] = clamp(c[0],0,255);
+        d[i+1] = clamp(c[1],0,255);
+        d[i+2] = clamp(c[2],0,255);
+        d[i+3] = 255;
+      }
+    }
+    g.putImageData(img,0,0);
+  }
+
+  function paintGas(g,W,H,seed,stops,turb,freq,poleShade){
+    const img = g.createImageData(W,H), d = img.data;
+    for(let y=0;y<H;y++){
+      const v = y/H;
+      for(let x=0;x<W;x++){
+        const u = x/W;
+        const n = NOISE.fbm(u,v,seed,3);
+        const n2 = NOISE.fbm(u,v*3.3,seed+77,2);
+        const warp = (n-0.5)*turb + (n2-0.5)*turb*0.4;
+        const yy = clamp01(v + warp);
+        let c = ramp(stops, yy);
+        const fine = Math.sin(yy*freq + n*8.5)*0.05 + Math.sin(yy*freq*2.4 + n2*12)*0.03;
+        const f = 1 + fine;
+        const pole = Math.pow(Math.abs(v-0.5)*2, 2.5) * poleShade;
+        c = [c[0]*f*(1-pole), c[1]*f*(1-pole), c[2]*f*(1-pole*0.85)];
+        const grain = (NOISE.hash(x,y,seed+5)-0.5)*4;
+        const i = (y*W+x)*4;
+        d[i] = clamp(c[0]+grain,0,255);
+        d[i+1] = clamp(c[1]+grain,0,255);
+        d[i+2] = clamp(c[2]+grain,0,255);
+        d[i+3] = 255;
+      }
+    }
+    g.putImageData(img,0,0);
+  }
+
+  function scatterCraters(g,W,H,count,seed,maxR){
+    const rnd = mulberry32(seed);
+    for(let i=0;i<count;i++){
+      const x = rnd()*W;
+      const y = H*(0.12 + rnd()*0.76);
+      const r = 2 + rnd()*rnd()*(maxR || 22);
+      for(const shift of [0,-W,W]){
+        const px = x + shift;
+        if(px < -r || px > W + r) continue;
+        const grd = g.createRadialGradient(px-r*0.25, y-r*0.3, r*0.05, px, y, r);
+        grd.addColorStop(0,'rgba(0,0,0,.26)');
+        grd.addColorStop(0.62,'rgba(0,0,0,.11)');
+        grd.addColorStop(0.84,'rgba(255,255,255,.15)');
+        grd.addColorStop(1,'rgba(255,255,255,0)');
+        g.fillStyle = grd;
+        g.beginPath();
+        g.arc(px,y,r,0,TAU);
+        g.fill();
+      }
+    }
+  }
+
+  function makeTexture(id){
+    const W = id === 'earth' ? 960 : 640;
+    const H = W / 2;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const seed = strSeed(id);
+
+    if(id === 'mercury'){
+      paintRock(g,W,H,seed,PALETTE.mercury,[1,1,1]);
+      scatterCraters(g,W,H,105,seed+11,26);
+    } else if(id === 'venus'){
+      paintVenus(g,W,H,seed);
+      g.globalAlpha = 0.12;
+      for(let i=0;i<80;i++){
+        const rnd = mulberry32(seed+i);
+        g.strokeStyle = i%2 ? 'rgba(255,240,190,.8)' : 'rgba(120,80,30,.7)';
+        g.lineWidth = 1 + rnd()*2.5;
+        g.beginPath();
+        const y = rnd()*H;
+        g.moveTo(0, y);
+        g.bezierCurveTo(W*0.3, y + (rnd()-0.5)*40, W*0.6, y + (rnd()-0.5)*40, W, y + (rnd()-0.5)*26);
+        g.stroke();
+      }
+      g.globalAlpha = 1;
+    } else if(id === 'earth'){
+      paintEarth(g,W,H,seed);
+    } else if(id === 'mars'){
+      paintRock(g,W,H,seed,PALETTE.mars,[1,0.96,0.9]);
+      const img = g.getImageData(0,0,W,H);
+      const d = img.data;
+      for(let y=0;y<H;y++){
+        const lat = Math.abs(y/H-0.5)*2;
+        const cap = smoothstep(0.87,0.955,lat);
+        if(cap > 0){
+          for(let x=0;x<W;x++){
+            const i = (y*W+x)*4;
+            d[i] = d[i]*(1-cap) + 235*cap;
+            d[i+1] = d[i+1]*(1-cap) + 229*cap;
+            d[i+2] = d[i+2]*(1-cap) + 216*cap;
+          }
+        }
+      }
+      g.putImageData(img,0,0);
+      scatterCraters(g,W,H,52,seed+33,13);
+    } else if(id === 'jupiter'){
+      paintGas(g,W,H,seed,PALETTE.jupiter,0.055,58,0.2);
+      g.save();
+      g.translate(W*0.705, H*0.62);
+      g.rotate(-0.07);
+      g.scale(W*0.062, H*0.085);
+      const spot = g.createRadialGradient(-0.2,-0.25,0.05,0,0,1);
+      spot.addColorStop(0,'rgba(222,146,112,.95)');
+      spot.addColorStop(0.5,'rgba(184,91,64,.92)');
+      spot.addColorStop(0.82,'rgba(138,64,46,.72)');
+      spot.addColorStop(1,'rgba(150,80,60,0)');
+      g.fillStyle = spot;
+      g.beginPath();
+      g.arc(0,0,1,0,TAU);
+      g.fill();
+      g.strokeStyle = 'rgba(255,228,196,.22)';
+      g.lineWidth = 0.05;
+      g.beginPath();
+      g.arc(0,0,0.72,0.4,5.4);
+      g.stroke();
+      g.restore();
+
+      for(let i=0;i<8;i++){
+        const rnd = mulberry32(seed+i*3);
+        g.fillStyle = 'rgba(248,236,214,.16)';
+        g.beginPath();
+        g.ellipse(W*(0.1+rnd()*0.8), H*(0.2+rnd()*0.6), W*0.02+rnd()*W*0.025, H*0.012+rnd()*H*0.012, 0, 0, TAU);
+        g.fill();
+      }
+    } else if(id === 'saturn'){
+      paintGas(g,W,H,seed,PALETTE.saturn,0.04,46,0.1);
+    } else if(id === 'uranus'){
+      paintGas(g,W,H,seed,PALETTE.uranus,0.03,26,0.05);
+    } else if(id === 'neptune'){
+      paintGas(g,W,H,seed,PALETTE.neptune,0.045,34,0.14);
+      g.save();
+      g.translate(W*0.34, H*0.57);
+      g.scale(W*0.045, H*0.055);
+      const ds = g.createRadialGradient(-0.15,-0.2,0.05,0,0,1);
+      ds.addColorStop(0,'rgba(18,34,92,.7)');
+      ds.addColorStop(0.7,'rgba(20,38,104,.45)');
+      ds.addColorStop(1,'rgba(30,50,120,0)');
+      g.fillStyle = ds;
+      g.beginPath();
+      g.arc(0,0,1,0,TAU);
+      g.fill();
+      g.restore();
+      for(let i=0;i<9;i++){
+        const rnd = mulberry32(seed+i*9);
+        g.fillStyle = 'rgba(200,220,255,.16)';
+        g.beginPath();
+        g.ellipse(W*(0.05+rnd()*0.9), H*(0.25+rnd()*0.5), W*0.018, H*0.006, 0, 0, TAU);
+        g.fill();
+      }
+    }
+    return cv;
+  }
+
+  function makeCloudTexture(seed, W, H){
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(W,H), d = img.data;
+    for(let y=0;y<H;y++){
+      const v = y/H;
+      const lat = Math.abs(v-0.5)*2;
+      for(let x=0;x<W;x++){
+        const u = x/W;
+        const n = NOISE.fbm(u, v*2.25, seed, 4);
+        const band = 0.5 + 0.14*Math.sin(v*18 + u*7);
+        let a = smoothstep(0.5,0.71,n + (band-0.5)*0.35) * 0.9;
+        a *= 1 - smoothstep(0.86,0.98,lat)*0.6;
+        const i = (y*W+x)*4;
+        d[i] = 244;
+        d[i+1] = 247;
+        d[i+2] = 252;
+        d[i+3] = a*255;
+      }
+    }
+    g.putImageData(img,0,0);
+    return cv;
+  }
+
+  const ASSETS = {};
+  function ensureAssets(id){
+    if(ASSETS[id]) return ASSETS[id];
+    if(id === 'sun' || id === 'belt') return null;
+    const asset = { tex: makeTexture(id) };
+    if(id === 'earth') asset.clouds = makeCloudTexture(strSeed('earth-clouds'), asset.tex.width, asset.tex.height);
+    ASSETS[id] = asset;
+    return asset;
+  }
+
+  /* ============================================================
+     行星特写
+  ============================================================ */
+  const HERO_META = {
+    mercury:{ atmo:'#c3b7a7', glow:.16, base:'#14110f' },
+    venus:{ atmo:'#f1d08c', glow:.18, base:'#1c160e' },
+    earth:{ atmo:'#7fc8ff', glow:.3, base:'#05101b', clouds:true,
+      moons:[{ r:1.62, speed:0.36, phase:2.2, size:0.042, color:'#e9e7df' }] },
+    mars:{ atmo:'#e0906f', glow:.17, base:'#190d09' },
+    jupiter:{ atmo:'#eccfaa', glow:.11, base:'#1a110b',
+      moons:[
+        { r:1.30, speed:0.55, phase:0.4, size:0.024, color:'#f7e4c0' },
+        { r:1.48, speed:0.40, phase:2.4, size:0.022, color:'#dfe9f2' },
+        { r:1.66, speed:0.29, phase:4.3, size:0.032, color:'#cdb99a' },
+        { r:1.86, speed:0.20, phase:1.4, size:0.028, color:'#a7a29a' }
+      ] },
+    saturn:{ atmo:'#f2e3be', glow:.14, base:'#1c150d' },
+    uranus:{ atmo:'#a5e8eb', glow:.18, base:'#081619' },
+    neptune:{ atmo:'#8ba7ff', glow:.2, base:'#050b22',
+      moons:[{ r:1.52, speed:0.26, phase:3.7, size:0.026, color:'#cfd8e6' }] }
+  };
+
+  function drawDecorRing(cx,cy,R,t,color){
+    const rot = -0.32;
+    const rr = R*1.38;
+    hctx.save();
+    hctx.translate(cx,cy);
+    hctx.rotate(rot);
+    hctx.scale(1,0.34);
+    hctx.beginPath();
+    hctx.arc(0,0,rr,0,TAU);
+    hctx.setLineDash([1.5,8]);
+    hctx.strokeStyle = rgba(color,.24);
+    hctx.lineWidth = 1;
+    hctx.stroke();
+    hctx.restore();
+
+    const a = t*0.16 + 1.2;
+    const ex = Math.cos(a)*rr;
+    const ey = Math.sin(a)*rr*0.34;
+    const px = cx + ex*Math.cos(rot) - ey*Math.sin(rot);
+    const py = cy + ex*Math.sin(rot) + ey*Math.cos(rot);
+    const grd = hctx.createRadialGradient(px,py,0,px,py,7);
+    grd.addColorStop(0, rgba(color,.75));
+    grd.addColorStop(1, rgba(color,0));
+    hctx.fillStyle = grd;
+    hctx.beginPath();
+    hctx.arc(px,py,7,0,TAU);
+    hctx.fill();
+    hctx.fillStyle = rgba(color,.8);
+    hctx.beginPath();
+    hctx.arc(px,py,1.4,0,TAU);
+    hctx.fill();
+  }
+
+  function drawMoonOrbits(cx,cy,R,meta){
+    hctx.save();
+    hctx.translate(cx,cy);
+    hctx.rotate(-0.18);
+    hctx.scale(1,0.28);
+    hctx.setLineDash([1,7]);
+    hctx.strokeStyle = 'rgba(206,222,248,.13)';
+    hctx.lineWidth = 1;
+    for(const m of meta.moons){
+      hctx.beginPath();
+      hctx.arc(0,0,R*m.r,0,TAU);
+      hctx.stroke();
+    }
+    hctx.restore();
+  }
+
+  function drawMoons(cx,cy,R,t,meta,front){
+    if(!meta.moons) return;
+    for(const m of meta.moons){
+      const ang = m.phase + t*m.speed;
+      const behind = Math.sin(ang) < 0;
+      // front=false 只画背面，front=true 只画正面
+      if(front === behind) continue;
+      const mx = cx + Math.cos(ang)*R*m.r;
+      const my = cy + Math.sin(ang)*R*m.r*0.28;
+      const ms = Math.max(1.6, R*m.size);
+      const grd = hctx.createRadialGradient(mx-ms*0.35,my-ms*0.35,ms*0.1,mx,my,ms*1.3);
+      grd.addColorStop(0, m.color);
+      grd.addColorStop(1, 'rgba(20,22,28,.85)');
+      hctx.fillStyle = grd;
+      hctx.beginPath();
+      hctx.arc(mx,my,ms,0,TAU);
+      hctx.fill();
+    }
+  }
+
+  function drawSphereTexture(tex,cx,cy,R,spin,alpha){
+    const tw = tex.width;
+    const th = tex.height;
+    const step = Math.max(1.6, R/135);
+    hctx.globalAlpha = alpha;
+    for(let x0 = -R; x0 < R; x0 += step){
+      const xc = Math.min(R-0.001, Math.max(-R+0.001, x0 + step/2));
+      const u = Math.asin(xc/R) / Math.PI;
+      const t = (((u + 0.5 + spin) % 1) + 1) % 1;
+      const stretch = 1 / Math.sqrt(Math.max(0.04, 1 - (xc/R)*(xc/R)));
+      const sw = Math.min(tw*0.32, (tw * step / (Math.PI * R)) * stretch);
+      const sx = t * tw;
+      drawWrapped(tex, sx, 0, sw, th, cx + x0, cy - R, step*1.12, 2*R);
+    }
+    hctx.globalAlpha = 1;
+  }
+
+  function drawWrapped(tex,sx,sy,sw,sh,dx,dy,dw,dh){
+    sx = ((sx % tex.width) + tex.width) % tex.width;
+    if(sx + sw <= tex.width){
+      hctx.drawImage(tex, sx, sy, sw, sh, dx, dy, dw, dh);
+    } else {
+      const w1 = tex.width - sx;
+      const w2 = sw - w1;
+      hctx.drawImage(tex, sx, sy, w1, sh, dx, dy, dw*(w1/sw), dh);
+      hctx.drawImage(tex, 0, sy, w2, sh, dx + dw*(w1/sw), dy, dw*(w2/sw), dh);
+    }
+  }
+
+  function drawSphereFace(cx,cy,R,t,type,meta){
+    const asset = ASSETS[type];
+    if(!asset) return;
+
+    // 大气辉光
+    const atmo = meta.atmo || '#9fb6d8';
+    const glowA = meta.glow != null ? meta.glow : 0.24;
+    const glow = hctx.createRadialGradient(cx,cy,R*0.94,cx,cy,R*1.24);
+    glow.addColorStop(0, rgba(atmo,glowA));
+    glow.addColorStop(0.5, rgba(atmo,glowA*0.36));
+    glow.addColorStop(1, rgba(atmo,0));
+    hctx.fillStyle = glow;
+    hctx.beginPath();
+    hctx.arc(cx,cy,R*1.24,0,TAU);
+    hctx.fill();
+
+    hctx.save();
+    hctx.beginPath();
+    hctx.arc(cx,cy,R,0,TAU);
+    hctx.clip();
+
+    hctx.fillStyle = meta.base || '#0a0d14';
+    hctx.fillRect(cx-R,cy-R,2*R,2*R);
+
+    const spin = t*0.014 + (type === 'earth' ? 0.02 : 0.06);
+    drawSphereTexture(asset.tex,cx,cy,R,spin,1);
+    if(meta.clouds && asset.clouds){
+      drawSphereTexture(asset.clouds,cx,cy,R,spin + 0.016,0.55);
+    }
+
+    // 昼夜与边缘压暗
+    const sh = hctx.createRadialGradient(cx-R*0.4,cy-R*0.42,R*0.12,cx,cy,R*1.1);
+    sh.addColorStop(0,'rgba(255,255,255,.05)');
+    sh.addColorStop(0.42,'rgba(0,0,0,0)');
+    sh.addColorStop(0.76,'rgba(2,4,10,.2)');
+    sh.addColorStop(1,'rgba(1,2,8,.82)');
+    hctx.fillStyle = sh;
+    hctx.beginPath(); hctx.arc(cx,cy,R,0,TAU); hctx.fill();
+
+    const term = hctx.createLinearGradient(cx+R*0.65, cy+R*0.5, cx-R*0.5, cy-R*0.55);
+    term.addColorStop(0,'rgba(1,2,8,.7)');
+    term.addColorStop(0.38,'rgba(1,2,8,.22)');
+    term.addColorStop(0.66,'rgba(1,2,8,0)');
+    term.addColorStop(1,'rgba(1,2,8,0)');
+    hctx.fillStyle = term;
+    hctx.beginPath(); hctx.arc(cx,cy,R,0,TAU); hctx.fill();
+
+    // 受光侧的大气边缘（只出现在左上方的亮缘）
+    hctx.globalCompositeOperation = 'lighter';
+    const rimA = meta.rimAlpha != null ? meta.rimAlpha : 0.36;
+    hctx.beginPath();
+    hctx.arc(cx,cy,R-1.1,Math.PI*0.72,Math.PI*1.28);
+    hctx.strokeStyle = rgba(atmo,rimA);
+    hctx.lineWidth = Math.max(1.2, R*0.012);
+    hctx.stroke();
+    hctx.beginPath();
+    hctx.arc(cx,cy,R-1.7,Math.PI*0.74,Math.PI*1.26);
+    hctx.strokeStyle = rgba(atmo,rimA*0.22);
+    hctx.lineWidth = Math.max(3, R*0.036);
+    hctx.stroke();
+    hctx.globalCompositeOperation = 'source-over';
+
+    hctx.restore();
+  }
+
+  function drawSaturnRings(cx,cy,R,front){
+    const bands = [
+      { r:1.32, w:0.045, a:0.2, c:'#d8c7a8' },
+      { r:1.4,  w:0.09,  a:0.3, c:'#e8d9bc' },
+      { r:1.51, w:0.12,  a:0.5, c:'#f0e2c4' },
+      { r:1.63, w:0.12,  a:0.55, c:'#f6ead0' },
+      { r:1.76, w:0.08,  a:0.42, c:'#dfcfad' },
+      { r:1.9,  w:0.13,  a:0.5, c:'#f2e5ca' },
+      { r:2.04, w:0.09,  a:0.36, c:'#dcc9a5' },
+      { r:2.16, w:0.05,  a:0.24, c:'#c9b58f' },
+      { r:2.25, w:0.03,  a:0.16, c:'#b9a47f' }
+    ];
+    hctx.save();
+    hctx.translate(cx,cy);
+    hctx.rotate(-0.26);
+    hctx.scale(1,0.3);
+    for(const b of bands){
+      hctx.beginPath();
+      if(front){
+        hctx.arc(0,0,b.r*R,0.02,Math.PI-0.02);
+      } else {
+        hctx.arc(0,0,b.r*R,Math.PI+0.02,TAU-0.02);
+      }
+      hctx.strokeStyle = rgba(b.c,b.a);
+      hctx.lineWidth = b.w*R;
+      hctx.stroke();
+    }
+    hctx.restore();
+  }
+
+  function drawPlanetHero(type,t){
+    const w = heroW, h = heroH;
+    if(w < 4 || h < 4) return;
+    const R = Math.min(w,h) * (type === 'saturn' ? 0.207 : type === 'jupiter' ? 0.255 : 0.285);
+    const cx = w*0.5, cy = h*0.5;
+    const meta = HERO_META[type] || {};
+    const asset = ensureAssets(type);
+    if(!asset) return;
+
+    if(!meta.moons) drawDecorRing(cx,cy,R,t,meta.atmo || '#b9c7da');
+    if(meta.moons) drawMoonOrbits(cx,cy,R,meta);
+
+    drawMoons(cx,cy,R,t,meta,false);
+    if(type === 'saturn') drawSaturnRings(cx,cy,R,false);
+
+    drawSphereFace(cx,cy,R,t,type,meta);
+
+    if(type === 'saturn') drawSaturnRings(cx,cy,R,true);
+    drawMoons(cx,cy,R,t,meta,true);
+
+    if(type === 'saturn'){
+      // 环的柔光
+      hctx.save();
+      hctx.translate(cx,cy);
+      hctx.rotate(-0.26);
+      hctx.scale(1,0.3);
+      hctx.beginPath();
+      hctx.arc(0,0,R*1.9,0,TAU);
+      hctx.strokeStyle = 'rgba(245,232,204,.07)';
+      hctx.lineWidth = R*0.55;
+      hctx.stroke();
+      hctx.restore();
+    }
+  }
+
+  /* -------- 太阳特写 -------- */
+  const sunBlobs = (function(){
+    const rnd = mulberry32(4471);
+    const arr = [];
+    for(let i=0;i<78;i++){
+      arr.push({
+        a: rnd()*TAU,
+        d: Math.sqrt(rnd())*0.9,
+        s: 0.025 + rnd()*0.085,
+        ph: rnd()*TAU,
+        sp: 0.06 + rnd()*0.12,
+        warm: rnd() > 0.35
+      });
+    }
+    return arr;
+  })();
+
+  const sunGrain = (function(){
+    const size = 384;
+    const cv = document.createElement('canvas');
+    cv.width = size; cv.height = size;
+    const g = cv.getContext('2d');
+    const img = g.createImageData(size,size);
+    const d = img.data;
+    for(let y=0;y<size;y++){
+      for(let x=0;x<size;x++){
+        const n = NOISE.fbm(x/size, y/size, 611, 4);
+        const v = 128 + (n-0.5)*150;
+        const i = (y*size+x)*4;
+        d[i] = d[i+1] = d[i+2] = clamp(v,0,255);
+        d[i+3] = 255;
+      }
+    }
+    g.putImageData(img,0,0);
+    return cv;
+  })();
+
+  function drawSunHero(t){
+    const w = heroW, h = heroH;
+    if(w < 4 || h < 4) return;
+    const R = Math.min(w,h)*0.258;
+    const cx = w*0.5, cy = h*0.5;
+    const pulse = 1 + Math.sin(t*0.65)*0.014;
+
+    const glowR = Math.min(R*2.55, Math.min(w,h)*0.49);
+    const glow = hctx.createRadialGradient(cx,cy,R*0.82,cx,cy,glowR);
+    glow.addColorStop(0,'rgba(255,198,96,.55)');
+    glow.addColorStop(0.28,'rgba(255,154,48,.23)');
+    glow.addColorStop(0.66,'rgba(255,120,24,.06)');
+    glow.addColorStop(1,'rgba(255,90,10,0)');
+    hctx.fillStyle = glow;
+    hctx.beginPath();
+    hctx.arc(cx,cy,glowR,0,TAU);
+    hctx.fill();
+
+    const core = hctx.createRadialGradient(cx-R*0.3,cy-R*0.32,R*0.04,cx,cy,R);
+    core.addColorStop(0,'#fffef5');
+    core.addColorStop(0.32,'#ffeaa7');
+    core.addColorStop(0.66,'#ffc35b');
+    core.addColorStop(0.94,'#ff9a2c');
+    core.addColorStop(1,'#ff891f');
+    hctx.fillStyle = core;
+    hctx.beginPath();
+    hctx.arc(cx,cy,R*pulse,0,TAU);
+    hctx.fill();
+
+    hctx.save();
+    hctx.beginPath();
+    hctx.arc(cx,cy,R,0,TAU);
+    hctx.clip();
+    hctx.globalCompositeOperation = 'overlay';
+    for(const b of sunBlobs){
+      const ang = b.a + t*b.sp;
+      const bx = cx + Math.cos(ang)*b.d*R*0.92;
+      const by = cy + Math.sin(ang)*b.d*R*0.92;
+      const rr = R*b.s*(1 + 0.16*Math.sin(t*0.7 + b.ph));
+      hctx.fillStyle = b.warm ? 'rgba(255,244,206,.08)' : 'rgba(206,82,10,.08)';
+      hctx.beginPath();
+      hctx.arc(bx,by,rr,0,TAU);
+      hctx.fill();
+    }
+    // 细密米粒组织
+    hctx.globalAlpha = 0.45;
+    hctx.save();
+    hctx.translate(cx,cy);
+    hctx.rotate(t*0.006);
+    hctx.drawImage(sunGrain, -R*1.04, -R*1.04, R*2.08, R*2.08);
+    hctx.restore();
+    hctx.globalAlpha = 1;
+    // 太阳黑子
+    for(let i=0;i<2;i++){
+      const bx = cx + R*(i === 0 ? -0.34 : 0.42);
+      const by = cy + R*(i === 0 ? 0.18 : -0.3);
+      const rr = R*(i === 0 ? 0.11 : 0.075);
+      const sg = hctx.createRadialGradient(bx,by,rr*0.1,bx,by,rr*1.5);
+      sg.addColorStop(0,'rgba(120,38,0,.4)');
+      sg.addColorStop(0.6,'rgba(150,52,0,.18)');
+      sg.addColorStop(1,'rgba(180,70,0,0)');
+      hctx.fillStyle = sg;
+      hctx.beginPath();
+      hctx.arc(bx,by,rr*1.5,0,TAU);
+      hctx.fill();
+    }
+    hctx.globalCompositeOperation = 'source-over';
+    hctx.restore();
+
+    // 临边昏暗，让日面更立体
+    const limb = hctx.createRadialGradient(cx,cy,R*0.48,cx,cy,R);
+    limb.addColorStop(0,'rgba(0,0,0,0)');
+    limb.addColorStop(0.78,'rgba(140,40,0,.05)');
+    limb.addColorStop(1,'rgba(90,18,0,.28)');
+    hctx.fillStyle = limb;
+    hctx.beginPath();
+    hctx.arc(cx,cy,R,0,TAU);
+    hctx.fill();
+  }
+
+  /* -------- 小行星带特写 -------- */
+  const beltDust = (function(){
+    const rnd = mulberry32(991);
+    return Array.from({length:90},()=>({
+      x: rnd(), y: rnd(), s: 0.5 + rnd()*2.2, a: 0.15 + rnd()*0.45,
+      ph: rnd()*TAU
+    }));
+  })();
+  const beltRocksHero = (function(){
+    const rnd = mulberry32(3321);
+    return Array.from({length:11},(_,i)=>{
+      const ang = rnd()*TAU;
+      return {
+        ang,
+        dist: 1.28 + rnd()*0.48,
+        r: 0.016 + rnd()*0.026,
+        rot: rnd()*TAU,
+        sp: (rnd()-0.5)*0.1,
+        ph: rnd()*TAU,
+        hue: rnd(),
+        back: rnd() > 0.46,
+        seed: 9000 + i*137
+      };
+    });
+  })();
+
+  function drawRockShape(cx,cy,r,rot,seed,light,dark){
+    const rnd = mulberry32(seed);
+    hctx.save();
+    hctx.translate(cx,cy);
+    hctx.rotate(rot);
+    hctx.beginPath();
+    const n = 11;
+    for(let i=0;i<n;i++){
+      const a = (i/n)*TAU;
+      const rr = r*(0.72 + rnd()*0.38);
+      const px = Math.cos(a)*rr;
+      const py = Math.sin(a)*rr*0.92;
+      if(i === 0) hctx.moveTo(px,py);
+      else hctx.lineTo(px,py);
+    }
+    hctx.closePath();
+    const g = hctx.createRadialGradient(-r*0.35,-r*0.38,r*0.05,0,0,r*1.1);
+    g.addColorStop(0, light);
+    g.addColorStop(0.6, dark);
+    g.addColorStop(1, '#221d17');
+    hctx.fillStyle = g;
+    hctx.fill();
+    hctx.strokeStyle = 'rgba(0,0,0,.18)';
+    hctx.lineWidth = 1;
+    hctx.stroke();
+    hctx.restore();
+  }
+
+  function drawBeltHero(t){
+    const w = heroW, h = heroH;
+    if(w < 4 || h < 4) return;
+    const R = Math.min(w,h)*0.31;
+    const cx = w*0.5, cy = h*0.51;
+
+    // 尘埃
+    hctx.save();
+    for(const d of beltDust){
+      const x = cx + (d.x-0.5)*w*0.95;
+      const y = cy + (d.y-0.5)*h*0.95 + Math.sin(t*0.2 + d.ph)*4;
+      hctx.globalAlpha = d.a * (0.65 + 0.35*Math.sin(t*0.7 + d.ph));
+      hctx.fillStyle = '#d8c6a8';
+      hctx.beginPath();
+      hctx.arc(x,y,d.s,0,TAU);
+      hctx.fill();
+    }
+    hctx.restore();
+
+    // 背景虚线轨道
+    drawDecorRing(cx,cy,R*1.32,t,'#c2ae90');
+
+    const bx = cx + R*0.03, by = cy + R*0.04;
+    const br = R*0.8;
+
+    const halo = hctx.createRadialGradient(bx,by,br*0.9,bx,by,br*1.55);
+    halo.addColorStop(0,'rgba(205,180,145,.09)');
+    halo.addColorStop(1,'rgba(205,180,145,0)');
+    hctx.fillStyle = halo;
+    hctx.beginPath();
+    hctx.arc(bx,by,br*1.55,0,TAU);
+    hctx.fill();
+
+    const drawSmall = (front)=>{
+      for(const rock of beltRocksHero){
+        if(front === rock.back) continue;
+        const ang = rock.ang + t*0.014;
+        const x = bx + Math.cos(ang)*br*rock.dist;
+        const y = by + Math.sin(ang)*br*rock.dist*0.94 + Math.sin(t*0.2 + rock.ph)*3;
+        const r = rock.r*Math.min(w,h);
+        if(front){
+          const sg = hctx.createRadialGradient(x+r*0.25,y+r*0.3,0,x+r*0.25,y+r*0.3,r*1.4);
+          sg.addColorStop(0,'rgba(0,0,0,.3)');
+          sg.addColorStop(1,'rgba(0,0,0,0)');
+          hctx.fillStyle = sg;
+          hctx.beginPath();
+          hctx.arc(x+r*0.25,y+r*0.3,r*1.4,0,TAU);
+          hctx.fill();
+        }
+        const tint = rock.hue > 0.6 ? 1 : rock.hue > 0.3 ? 0.92 : 0.82;
+        drawRockShape(x,y,r,rock.rot + t*rock.sp + Math.sin(t*0.1+rock.ph)*0.06,
+          rock.seed, '#b7a891', tint > 0.9 ? '#6e6152' : '#5b5145');
+      }
+    };
+
+    drawSmall(false);
+
+    // 大天体：谷神星
+    hctx.save();
+    hctx.beginPath();
+    hctx.arc(bx,by,br,0,TAU);
+    hctx.clip();
+    const bg = hctx.createRadialGradient(bx-br*0.4,by-br*0.45,br*0.05,bx,by,br*1.05);
+    bg.addColorStop(0,'#a99a86');
+    bg.addColorStop(0.55,'#7d6f5e');
+    bg.addColorStop(1,'#2a241d');
+    hctx.fillStyle = bg;
+    hctx.fillRect(bx-br,by-br,br*2,br*2);
+    const rnd = mulberry32(881);
+    for(let i=0;i<16;i++){
+      const a = rnd()*TAU, d = Math.sqrt(rnd())*br*0.88, rr = br*(0.03+rnd()*0.13);
+      const px = bx+Math.cos(a)*d, py = by+Math.sin(a)*d;
+      const cg = hctx.createRadialGradient(px-rr*0.3,py-rr*0.3,rr*0.05,px,py,rr);
+      cg.addColorStop(0,'rgba(0,0,0,.28)');
+      cg.addColorStop(0.7,'rgba(0,0,0,.12)');
+      cg.addColorStop(0.88,'rgba(236,224,204,.16)');
+      cg.addColorStop(1,'rgba(236,224,204,0)');
+      hctx.fillStyle = cg;
+      hctx.beginPath();
+      hctx.arc(px,py,rr,0,TAU);
+      hctx.fill();
+    }
+    const shade = hctx.createRadialGradient(bx-br*0.5,by-br*0.5,br*0.1,bx,by,br*1.1);
+    shade.addColorStop(0,'rgba(255,248,230,.1)');
+    shade.addColorStop(0.5,'rgba(0,0,0,0)');
+    shade.addColorStop(0.82,'rgba(0,0,0,.32)');
+    shade.addColorStop(1,'rgba(0,0,0,.8)');
+    hctx.fillStyle = shade;
+    hctx.fillRect(bx-br,by-br,br*2,br*2);
+    hctx.restore();
+
+    drawSmall(true);
+  }
+
+  /* ============================================================
+     渲染入口
+  ============================================================ */
+  function drawHeroScene(t){
+    const w = heroW, h = heroH;
+    if(w < 4 || h < 4) return;
+    hctx.clearRect(0,0,w,h);
+    const type = S.heroType;
+    if(!type) return;
+    if(type === 'sun') drawSunHero(t);
+    else if(type === 'belt') drawBeltHero(t);
+    else drawPlanetHero(type,t);
+  }
+
+  /* ============================================================
+     章节切换与界面
+  ============================================================ */
+  function buildTrack(){
+    els.track.innerHTML = '';
+    segs = [];
+    CHAPTERS.forEach((ch,i)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'seg';
+      b.style.flexGrow = ch.dur;
+      b.dataset.label = pad2(i+1) + ' · ' + ch.label;
+      b.setAttribute('aria-label','第 ' + (i+1) + ' 章 ' + ch.label);
+      b.innerHTML = '<span class="base"></span><span class="fill"></span>';
+      b.addEventListener('click',()=>{ if(!S.transitioning) goTo(i); });
+      els.track.appendChild(b);
+      segs.push(b);
+    });
+  }
+
+  function paintTrack(){
+    segs.forEach((s,i)=>{
+      const fill = s.querySelector('.fill');
+      s.classList.toggle('active', i === S.idx);
+      s.setAttribute('aria-current', i === S.idx ? 'true' : 'false');
+      fill.style.width = i < S.idx ? '100%' : '0%';
+      fill.style.opacity = i < S.idx ? '.45' : '1';
+    });
+    const cur = segs[S.idx];
+    if(cur) cur.querySelector('.fill').style.opacity = '1';
+  }
+
+  function updateProgress(){
+    if(!segs.length) return;
+    const ch = CHAPTERS[S.idx];
+    const p = clamp01(S.elapsed / ch.dur) * 100;
+    const fill = segs[S.idx].querySelector('.fill');
+    if(fill) fill.style.width = p + '%';
+  }
+
+  function updateHud(){
+    els.hudNum.textContent = pad2(S.idx + 1) + ' / ' + pad2(CHAPTERS.length);
+    els.hudName.textContent = CHAPTERS[S.idx].label;
+  }
+
+  function applyChapter(i){
+    const ch = CHAPTERS[i];
+    document.body.dataset.mode = ch.type;
+    document.documentElement.style.setProperty('--accent', ch.accent);
+
+    els.intro.classList.toggle('show', ch.type === 'intro');
+    els.panel.classList.toggle('show', ch.type !== 'intro');
+    els.heroWrap.classList.toggle('show', !!ch.hero);
+    els.heroWrap.classList.toggle('is-sun', ch.hero === 'sun');
+    els.narrative.classList.toggle('show', !!ch.narration && ch.type !== 'intro');
+
+    S.heroType = ch.hero || null;
+
+    if(ch.type !== 'intro'){
+      els.num.textContent = pad2(i + 1);
+      els.tag.textContent = ch.tag || '';
+      els.name.textContent = ch.name || '';
+      els.en.textContent = ch.en || '';
+      els.desc.innerHTML = (ch.desc || '').replace(/\n/g,'<br>');
+      els.stats.innerHTML = (ch.stats || []).map(s =>
+        '<div class="stat"><span class="k">' + s[0] + '</span><span class="v">' + s[1] + '</span></div>'
+      ).join('');
+      els.stats.classList.toggle('empty', !(ch.stats && ch.stats.length));
+      els.narrativeText.textContent = ch.narration || '';
+    }
+
+    if(S.heroType){
+      ensureAssets(S.heroType);
+      sizeHero();
+    }
+    camTarget = cameraTargetFor(ch);
+    paintTrack();
+    updateHud();
+  }
+
+  function goTo(i, instant){
+    i = clamp(i, 0, CHAPTERS.length - 1);
+    const token = ++goTo.token;
+    S.idx = i;
+    S.elapsed = 0;
+    S.transitioning = true;
+    updateHud();
+    paintTrack();
+    camTarget = cameraTargetFor(CHAPTERS[i]);
+
+    const commit = () => {
+      if(token !== goTo.token) return;
+      applyChapter(i);
+      nextFrame().then(()=>{
+        if(token !== goTo.token) return;
+        els.stage.classList.remove('fading');
+        S.transitioning = false;
+      });
+    };
+
+    if(instant){
+      applyChapter(i);
+      els.stage.classList.remove('fading');
+      S.transitioning = false;
+    } else {
+      els.stage.classList.add('fading');
+      setTimeout(commit, 400);
+    }
+  }
+  goTo.token = 0;
+
+  function togglePlay(){
+    if(!S.playing){
+      if(S.idx === CHAPTERS.length-1 && S.elapsed >= CHAPTERS[S.idx].dur - 5){
+        S.elapsed = 0;
+        goTo(0);
+      }
+      S.playing = true;
+    } else {
+      S.playing = false;
+    }
+    document.body.dataset.playing = String(S.playing);
+  }
+
+  function restart(){
+    S.playing = true;
+    document.body.dataset.playing = 'true';
+    S.elapsed = 0;
+    goTo(0);
+  }
+
+  /* ============================================================
+     循环
+  ============================================================ */
+  function updateCamera(dt){
+    const k = 1 - Math.exp(-2.2 * dt);
+    cam.zoom += (camTarget.zoom - cam.zoom) * k;
+    cam.x += (camTarget.x - cam.x) * k;
+    cam.y += (camTarget.y - cam.y) * k;
+  }
+
+  function loop(now){
+    const dt = Math.min(0.05, (now - S.last) / 1000);
+    S.last = now;
+
+    if(S.playing){
+      S.worldTime += dt * S.speed;
+      S.elapsed += dt * S.speed * 1000;
+
+      if(!S.transitioning && S.elapsed >= CHAPTERS[S.idx].dur){
+        if(S.idx < CHAPTERS.length - 1){
+          goTo(S.idx + 1);
+        } else {
+          S.elapsed = CHAPTERS[S.idx].dur;
+          S.playing = false;
+          document.body.dataset.playing = 'false';
+        }
+      }
+    }
+
+    updateCamera(dt);
+    updateMeteors(dt);
+    drawSpace(S.worldTime);
+    if(S.heroType) drawHeroScene(S.elapsed / 1000);
+    updateProgress();
+
+    requestAnimationFrame(loop);
+  }
+
+  /* ============================================================
+     事件
+  ============================================================ */
+  function bindEvents(){
+    els.btnPlay.addEventListener('click', togglePlay);
+    els.btnPrev.addEventListener('click', ()=>goTo(S.idx === 0 ? 0 : S.idx - 1));
+    els.btnNext.addEventListener('click', ()=>goTo(S.idx === CHAPTERS.length - 1 ? 0 : S.idx + 1));
+    els.btnSpeed.addEventListener('click', ()=>{
+      const speeds = [1, 1.5, 2];
+      const next = speeds[(speeds.indexOf(S.speed) + 1) % speeds.length];
+      S.speed = next;
+      els.btnSpeed.textContent = next + '×';
+    });
+    els.replay.addEventListener('click', restart);
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.code === 'Space'){
+        e.preventDefault();
+        togglePlay();
+      } else if(e.key === 'ArrowRight'){
+        goTo(S.idx === CHAPTERS.length - 1 ? 0 : S.idx + 1);
+      } else if(e.key === 'ArrowLeft'){
+        goTo(S.idx === 0 ? 0 : S.idx - 1);
+      }
+    });
+
+    window.addEventListener('resize', ()=>{
+      sizeSpace();
+    });
+
+    document.addEventListener('visibilitychange', ()=>{
+      S.last = performance.now();
+    });
+  }
+
+  /* ============================================================
+     启动
+  ============================================================ */
+  function startAtInitialChapter(){
+    const params = new URLSearchParams(location.search);
+    const wanted = params.get('ch');
+    if(wanted){
+      const i = CHAPTERS.findIndex(c => c.hero === wanted || c.type === wanted || c.label === wanted);
+      if(i >= 0){
+        S.idx = i;
+        applyChapter(i);
+        cam.zoom = camTarget.zoom;
+        return true;
+      }
+    }
+    S.idx = 0;
+    applyChapter(0);
+    return false;
+  }
+
+  function prewarm(){
+    const ids = ['earth','jupiter','saturn','mars','mercury','venus','uranus','neptune'];
+    ids.forEach((id,i)=>setTimeout(()=>ensureAssets(id), i*90));
+  }
+
+  function init(){
+    buildTrack();
+    sizeSpace();
+    bindEvents();
+    document.body.dataset.playing = 'true';
+    const deepLinked = startAtInitialChapter();
+    paintTrack();
+    updateHud();
+    S.started = true;
+    S.last = performance.now();
+    requestAnimationFrame(loop);
+    setTimeout(prewarm, deepLinked ? 300 : 1600);
+  }
+
+  window.__solar = { goTo, chapters: CHAPTERS, state: S };
+  init();
+})();
+</script>
+</body>
+</html>
